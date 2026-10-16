@@ -200,7 +200,7 @@ function addItem(){
   if(fdef($("freq").value).pick&&!selM.length){$("mhint").style.display="block";$("monthrow").scrollIntoView({block:"center"});return}
   if(fdef($("freq").value).once&&!$("odate").value){$("odate").focus();return}
   var obj={name:$("name").value.trim()||"項目",amt:a,date:Math.min(31,Math.max(0,Math.round(num($("date").value))))||0,freq:$("freq").value,months:selM.slice(),once:$("odate").value};
-  if(obj.freq==="once"){obj.date=+obj.once.split("-")[2]}else{obj.once=""}var ed=editIdx;if(editIdx>=0){var o=items[editIdx];o.name=obj.name;o.amt=obj.amt;o.date=obj.date;o.freq=obj.freq;o.months=obj.months;o.once=obj.once}else{obj.doneKey="";items.push(obj)}
+  if(obj.freq==="once"){obj.date=+obj.once.split("-")[2]}else{obj.once=""}var ed=editIdx;if(editIdx>=0){var o=items[editIdx];o.name=obj.name;o.amt=obj.amt;o.date=obj.date;o.freq=obj.freq;o.months=obj.months;o.once=obj.once}else{obj.doneKey="";items.push(obj);ed=items.length-1}
   resetForm();if(ed<0)$("name").focus();else setTimeout(function(){var el=document.querySelector('li[data-i="'+ed+'"]');if(el){el.scrollIntoView({block:"center",behavior:"smooth"});el.classList.add("flash");setTimeout(function(){el.classList.remove("flash")},1800)}},50);
   save();render();
 }
