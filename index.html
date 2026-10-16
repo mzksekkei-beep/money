@@ -129,7 +129,7 @@ function dim(y,m){return new Date(y,m+1,0).getDate()}
 function addDays(d,n){return new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)}
 function nextPay(){if(!payday)return null;var p=payday.split("-"),y=+p[0],m=+p[1]-1,day=+p[2],t=today();for(var i=0;i<600;i++){var c=new Date(y,m,Math.min(day,dim(y,m)));if(c>t)return c;m++;if(m>11){m=0;y++}}return null}
 function pEnd(){var np=nextPay(),t=today();return np?addDays(np,-1):new Date(t.getFullYear(),t.getMonth()+1,0)}
-function hit(it,D){if(it.freq==="once")return ds(D)===it.once;if(mlist(it).indexOf(D.getMonth()+1)<0)return false;if(!it.date)return ds(D)===ds(today());return D.getDate()===Math.min(it.date,dim(D.getFullYear(),D.getMonth()))}
+function hit(it,D){if(it.freq==="once")return ds(D)===it.once;if(mlist(it).indexOf(D.getMonth()+1)<0)return false;if(!it.date)return D.getDate()===1||ds(D)===ds(today());return D.getDate()===Math.min(it.date,dim(D.getFullYear(),D.getMonth()))}
 var HC={};
 function mon(y,m,n){var w=new Date(y,m,1).getDay();return 1+((8-w)%7)+(n-1)*7}
 function hols(y){
@@ -148,34 +148,40 @@ function hols(y){
 }
 function isBiz(D){var w=D.getDay();return w!==0&&w!==6&&!hols(D.getFullYear())[(D.getMonth()+1)+"-"+D.getDate()]}
 function nb(D){while(!isBiz(D))D=addDays(D,1);return D}
-function occ(it){var t=today(),e=pEnd();for(var D=addDays(t,-10);D<=e;D=addDays(D,1)){if(hit(it,D)){var A=it.date?nb(D):D;if(A>=t&&A<=e)return A}}return null}
+function occs(it){var t=today(),e=pEnd(),r=[],seen={};for(var D=addDays(t,-10);D<=e;D=addDays(D,1)){if(hit(it,D)){var A=it.date?nb(D):D;if(A>=t&&A<=e){var k=ds(A);if(!seen[k]){seen[k]=1;r.push(A)}}}}return r}
+function occ(it){var r=occs(it);return r.length?r[0]:null}
 function after(it){var e=pEnd();if(it.freq==="once"){var p=(it.once||"").split("-"),S=new Date(+p[0],+p[1]-1,+p[2]),A=nb(S);return A>e?A:null}var lim=addDays(e,400);for(var D=addDays(e,-10);D<=lim;D=addDays(D,1)){if(mlist(it).indexOf(D.getMonth()+1)>=0&&(!it.date||D.getDate()===Math.min(it.date,dim(D.getFullYear(),D.getMonth())))){var A=it.date?nb(D):D;if(A>e)return A}}return addDays(e,1)}
 function lbl(D){return (D.getMonth()+1)+"月"+D.getDate()+"日"}
 function sh(it,o){return o.getDate()!==Math.min(it.date,dim(o.getFullYear(),o.getMonth()))?"・休日のため翌平日":""}
 function desc(it){return it.freq==="once"?"1回のみ":fdef(it.freq).n===1?"毎月":mlist(it).join("・")+"月"}
 function rank(it){var o=occ(it);return !o?2:(it.doneKey===ds(o)?1:0)}
 function save(){try{localStorage.setItem("zandaka",JSON.stringify({bal:bal,payday:payday,items:items}))}catch(e){}}
-function load(){try{var d=JSON.parse(localStorage.getItem("zandaka")||"null");if(d){bal=d.bal||0;payday=d.payday||"";items=(d.items||[]).map(function(i){if(typeof i.date==="string")i.date=i.date?+i.date.split("-")[2]:0;if(!i.freq){i.freq="m1";i.start=1}if(/^m(2|3|6|12)$/.test(i.freq)){var nn=+i.freq.slice(1),ss=i.start||1,ms=[];for(var q=1;q<=12;q++){if(((q-ss)%nn+nn)%nn===0)ms.push(q)}i.freq="pick";i.months=ms;delete i.start}delete i.done;if(/^\d{4}-\d{1,2}$/.test(i.doneKey||""))i.doneKey="";return i})}}catch(e){}}
+function load(){try{var d=JSON.parse(localStorage.getItem("zandaka")||"null");if(d){bal=d.bal||0;payday=d.payday||"";items=(d.items||[]).map(function(i){if(typeof i.date==="string")i.date=i.date?+i.date.split("-")[2]:0;if(!i.freq){i.freq="m1";i.start=1}if(/^m(2|3|6|12)$/.test(i.freq)){var nn=+i.freq.slice(1),ss=i.start||1,ms=[];for(var q=1;q<=12;q++){if(((q-ss)%nn+nn)%nn===0)ms.push(q)}i.freq="pick";i.months=ms;delete i.start}delete i.done;if(/^\d{4}-\d{2}-\d{2}$/.test(i.doneKey||"")&&!i.doneKeys)i.doneKeys=[i.doneKey];i.doneKey="";if(!i.doneKeys)i.doneKeys=[];return i})}}catch(e){}}
 function render(){
-  var c=cm(),t=0;
-  items.forEach(function(i){if(rank(i)===0)t+=i.amt});
+  var t=0,ent=[];
+  items.forEach(function(it,idx){
+    var os=occs(it),dk=it.doneKeys||[];
+    if(os.length){os.forEach(function(A){var dn=dk.indexOf(ds(A))>=0;if(!dn)t+=it.amt;ent.push({it:it,idx:idx,A:A,rk:dn?1:0})})}
+    else ent.push({it:it,idx:idx,A:null,rk:2});
+  });
   var r=bal-t;
   $("ttl").textContent=lbl(pEnd())+"まで使えるお金";$("sumlbl").textContent=payday?"給料日前日までに引かれる合計":"月末までに引かれる合計";
   $("result").textContent=yen(r);
   $("result").className="result "+(r<0?"ng":"ok");
   $("total").textContent=yen(t);
   $("empty").style.display=items.length?"none":"block";
-  var order=items.map(function(_,i){return i}).sort(function(x,y){var a=items[x],b=items[y],ra=rank(a),rb=rank(b);if(ra!==rb)return ra-rb;var xa=(ra===2?after(a):occ(a))||new Date(9999,0,1),xb=(rb===2?after(b):occ(b))||new Date(9999,0,1);return (xa-xb)||((a.date||99)-(b.date||99))});
+  var far=new Date(9999,0,1);
+  ent.sort(function(x,y){if(x.rk!==y.rk)return x.rk-y.rk;var xa=x.rk===2?(after(x.it)||far):x.A,ya=y.rk===2?(after(y.it)||far):y.A;return (xa-ya)||((x.it.date||99)-(y.it.date||99))});
   var ul=$("list");ul.innerHTML="";
-  order.forEach(function(idx){
-    var it=items[idx],rk=rank(it);
+  ent.forEach(function(en){
+    var it=en.it,idx=en.idx,rk=en.rk,A=en.A;
     var li=document.createElement("li");li.setAttribute("data-i",idx);li.className=rk===1?"done":(rk===2?"off":"");
-    var box;
-    if(rk===2){box=document.createElement("input");box.type="checkbox";box.checked=true;box.disabled=true;box.setAttribute("aria-label",it.name+"は今月引かれない")}
-    else{box=document.createElement("input");box.type="checkbox";box.checked=rk===1;box.setAttribute("aria-label",it.name+"は引かれた");box.onchange=function(){it.doneKey=box.checked?ds(occ(it)):"";save();render()}}
+    var box=document.createElement("input");box.type="checkbox";
+    if(rk===2){box.checked=true;box.disabled=true;box.setAttribute("aria-label",it.name+"は今回は引かれない")}
+    else{box.checked=rk===1;box.setAttribute("aria-label",it.name+"は引かれた");box.onchange=function(){var k=ds(A),dk=it.doneKeys||[],q=dk.indexOf(k);if(box.checked&&q<0)dk.push(k);if(!box.checked&&q>=0)dk.splice(q,1);it.doneKeys=dk;save();render()}}
     var n=document.createElement("span");n.className="n";n.textContent=it.name;
     var d=document.createElement("small");
-    d.textContent=rk===2&&!after(it)?"1回のみ・終了":rk===2?"今回はなし・次は"+(it.date?lbl(after(it)):(after(it).getMonth()+1)+"月"):(it.date?lbl(occ(it)):(occ(it).getMonth()+1)+"月")+"・"+desc(it)+(it.date&&rk<2?sh(it,occ(it)):"")+(rk===1?"・引き落とし済み":"");
+    d.textContent=rk===2?(after(it)?"今回はなし・次は"+(it.date?lbl(after(it)):(after(it).getMonth()+1)+"月"):"1回のみ・終了"):(it.date?lbl(A):(A.getMonth()+1)+"月")+"・"+desc(it)+(it.date?sh(it,A):"")+(rk===1?"・引き落とし済み":"");
     d.className="m";
     var a=document.createElement("span");a.className="a";a.textContent=yen(it.amt);
     var e=document.createElement("button");e.textContent="✎";e.setAttribute("aria-label",it.name+"を編集");e.onclick=function(){startEdit(idx)};
